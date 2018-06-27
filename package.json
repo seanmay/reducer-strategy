@@ -1,0 +1,14 @@
+{
+  "name": "reducer-strategy",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "devDependencies": {
+    "typescript": "2.9.2"
+  },
+  "scripts": {
+    "build:watch": "tsc --outDir dist -d --sourceMap --strict --alwaysStrict -w src/index.ts"
+  },
+  "dependencies": {
+    "redux": "^4.0.0"
+  }
+}
