@@ -41,13 +41,11 @@ type ShoeState = {
 };
 
 export const shoeducer = Strategy<ShoeState, ShoeActions>({
-  [ShoePurchase.Request]: (state, action) => {
-    action.payload.quantity;
-    return { ...state, pending: true };
-  },
+  [ShoePurchase.Request]: (state, action) => ({ ...state, pending: true }),
   [ShoePurchase.Error]: (state, action) => {
-    action.error;
-    action.payload.message;
+    console.error(action.payload.message);
+    // note that I don't need to check if `action.payload.message` exists
+    // `message` is a required `string`, on `Error`
     return {
       ...state,
       pending: false,
@@ -55,7 +53,8 @@ export const shoeducer = Strategy<ShoeState, ShoeActions>({
     };
   },
   [ShoePurchase.Success]: (state, action) => {
-    action.payload.id;
+    action.payload.id; // <-- hover over this, with a TS2.8+ editor.
+    // Infer all the things!
     return {
       ...state,
       pending: false,
@@ -103,4 +102,7 @@ store.dispatch<ShoeActions>({
 
 store.dispatch<ShoeActions>(ShoeAction[ShoePurchase.Request](8));
 
-// shoeducer({ shoes: 0 }, { type: ShoePurchase.Request })
+shoeducer(
+  { shoes: 0, pending: true, errors: [] },
+  { type: ShoePurchase.Request, payload: { quantity: 5 } }
+);

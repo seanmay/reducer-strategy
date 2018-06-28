@@ -1,3 +1,11 @@
+type Immutable<T> = T extends any[]
+  ? ImmutableArray<T[number]>
+  : T extends object ? ImmutableObject<T> : T;
+
+type ImmutableObject<T> = { readonly [key in keyof T]: Immutable<T[key]> };
+
+interface ImmutableArray<T> extends ReadonlyArray<Immutable<T>> {}
+
 interface FSA {
   type: string;
   error?: true;
@@ -5,56 +13,55 @@ interface FSA {
   meta?: any;
 }
 
-interface NarrowingAction<Key extends string> {
-  type: Key;
-}
+type InferredKeys<T> = T extends { type: infer Key } ? Key : never;
 
-interface BasicAction<Key extends string> {
+interface BasicAction<Key> {
   type: Key;
-  payload?: any
+  payload?: any;
   meta?: any;
 }
 
-interface ErrorAction<Key extends string> {
+interface ErrorAction<Key> {
   type: Key;
   error: true;
   payload?: any;
   meta?: any;
 }
 
-type SpecificAction<
-  Action extends BasicAction<Keys> | ErrorAction<Keys>,
-  Key extends string,
-  Keys extends string = Action["type"]
-> = Extract<Action, NarrowingAction<Key>>;
+type AnyAction<Key> = BasicAction<Key> | ErrorAction<Key>;
+type NarrowingAction<Key> = { type: Key };
+type SpecificAction<Action, Key> = Extract<Action, NarrowingAction<Key>>;
 
 interface Reducer<State, Action> {
-  (state: State, action: Action): State;
+  (state: Immutable<State>, action: Immutable<Action>): Immutable<State>;
 }
 
-type ReducerMap<
-  State,
-  Actions extends BasicAction<Keys> | ErrorAction<Keys>,
-  Keys extends string = Actions["type"]
-> = { [key in Keys]: Reducer<State, SpecificAction<Actions, key>> };
+type ReducerMap<State, Actions, Keys extends string> = {
+  [key in Keys]: (state: Immutable<State>, action: Immutable<SpecificAction<Actions, key>>) => Immutable<State>
+  // Reducer<State, SpecificAction<Actions, key>>
+};
 
 const isUnknownAction = (
   action: { type: string },
   map: { [key: string]: any }
 ): action is FSA => !(action.type in map);
 
-type AnyAction<Keys extends string> = ErrorAction<Keys> | BasicAction<Keys>;
-
 export const Strategy = <
   State,
   Actions extends AnyAction<Keys>,
-  Keys extends string = Actions["type"]
+  Keys extends string = Extract<InferredKeys<Actions>, string>
 >(
-  map: ReducerMap<State, Actions>
-): Reducer<State, Actions | Exclude<FSA, { type: Keys }>> => (state, action) =>
-  isUnknownAction(action, map)
-    ? state
-    : map[action.type](state, action as SpecificAction<
-        typeof action,
-        typeof action.type
-      >);
+  map: ReducerMap<State, Actions, Keys>
+) => (state: State, action: Actions) => {
+  const isUnknown = isUnknownAction(action, map);
+  if (isUnknown) {
+    return state as Immutable<State>;
+  } else {
+    const reduce = map[action.type];
+    const result: Immutable<State> = reduce(
+      state as Immutable<typeof state>,
+      action as Immutable<SpecificAction<typeof action, typeof action.type>>
+    );
+    return result;
+  }
+};
